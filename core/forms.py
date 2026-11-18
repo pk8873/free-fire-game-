@@ -39,3 +39,7 @@ class DisputeForm(forms.ModelForm):
         model=MatchDispute
         fields=('message',)
         widgets={'message':forms.Textarea(attrs={'rows':4,'placeholder':'Explain the issue clearly. Do not include passwords or private data.'})}
+
+class MatchResultForm(forms.Form):
+    score_a=forms.IntegerField(min_value=0,max_value=99,label='Team A score')
+    score_b=forms.IntegerField(min_value=0,max_value=99,label='Team B score')
