@@ -161,7 +161,7 @@ def tournament_detail(request,slug):
     tournament=get_object_or_404(Tournament,slug=slug)
     my_teams=Team.objects.filter(members__player=request.user,members__is_active=True).distinct() if request.user.is_authenticated else Team.objects.none()
     registrations=Registration.objects.filter(tournament=tournament,team__in=my_teams)
-    return render(request,'core/tournament_detail.html',{'tournament':tournament,'my_teams':my_teams,'registrations':registrations})
+    return render(request,'core/tournament_detail.html',{'tournament':tournament,'my_teams':my_teams,'registrations':registrations,'now':timezone.now()})
 
 @login_required
 def register_team(request,slug):
