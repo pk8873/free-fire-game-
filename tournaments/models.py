@@ -18,7 +18,7 @@ class Tournament(models.Model):
     class Meta: ordering=['start_at']
     def __str__(self): return self.title
     @property
-    def registered_teams(self): return self.registrations.count()
+    def registered_teams(self): return self.registrations.filter(status='APPROVED').count()
 
 class Registration(models.Model):
     tournament=models.ForeignKey(Tournament,on_delete=models.CASCADE,related_name='registrations')
@@ -56,3 +56,14 @@ class MatchResult(models.Model):
     admin_note=models.TextField(blank=True)
     updated_at=models.DateTimeField(auto_now=True)
     def __str__(self): return f'Result: {self.match}'
+
+class MatchDispute(models.Model):
+    match=models.ForeignKey(Match,on_delete=models.CASCADE,related_name='disputes')
+    filed_by=models.ForeignKey(settings.AUTH_USER_MODEL,on_delete=models.PROTECT,related_name='match_disputes')
+    message=models.TextField(max_length=2000)
+    status=models.CharField(max_length=16,choices=[('OPEN','Open'),('REVIEWING','Reviewing'),('RESOLVED','Resolved'),('REJECTED','Rejected')],default='OPEN')
+    admin_response=models.TextField(blank=True)
+    created_at=models.DateTimeField(auto_now_add=True)
+    class Meta:
+        ordering=['-created_at']
+    def __str__(self): return f'Dispute: {self.match} by {self.filed_by}'
