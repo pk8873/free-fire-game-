@@ -20,9 +20,9 @@ class SignUpForm(UserCreationForm):
     def save(self, commit=True):
         user=super().save(commit=commit)
         if commit:
-            PlayerProfile.objects.create(user=user,email=self.cleaned_data['email']) if False else None
+            user.email=self.cleaned_data['email']
+            user.save(update_fields=['email'])
             PlayerProfile.objects.create(user=user,game_uid=self.cleaned_data['game_uid'].strip(),in_game_name=self.cleaned_data['in_game_name'].strip(),phone=self.cleaned_data.get('phone','').strip())
-            user.email=self.cleaned_data['email']; user.save(update_fields=['email'])
         return user
 
 class TeamCreateForm(forms.ModelForm):
