@@ -166,7 +166,12 @@ def tournament_detail(request,slug):
 def register_team(request,slug):
     if request.method!='POST': return redirect('tournament-detail',slug=slug)
     tournament=get_object_or_404(Tournament,slug=slug)
-    team=get_object_or_404(Team,pk=request.POST.get('team_id'),captain=request.user)
+    try:
+        submitted_team_id=int(request.POST.get('team_id',''))
+    except (TypeError,ValueError):
+        messages.error(request,'Choose a valid team to register.')
+        return redirect('tournament-detail',slug=slug)
+    team=get_object_or_404(Team,pk=submitted_team_id,captain=request.user)
     active_count=team.members.filter(is_active=True).count()
     if tournament.status!='PUBLISHED' or tournament.registration_deadline<=timezone.now():
         messages.error(request,'Registration is closed.')
@@ -193,7 +198,7 @@ def register_team(request,slug):
 def matches(request):
     team_ids=list(TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True))
     regs=Registration.objects.filter(team_id__in=team_ids,status='APPROVED').values_list('tournament_id',flat=True)
-    match_list=Match.objects.filter(tournament_id__in=regs).filter(Q(team_a_id__in=team_ids)|Q(team_b_id__in=team_ids)).select_related('tournament','team_a','team_b').order_by('scheduled_at')
+    match_list=Match.objects.filter(tournament_id__in=regs).filter(Q(team_a_id__in=team_ids)|Q(team_b_id__in=team_ids)).select_related('tournament','team_a','team_b','result','room_credentials').order_by('scheduled_at')
     visible=[]
     now=timezone.now()
     for match in match_list:
@@ -234,6 +239,9 @@ def file_dispute(request,match_id):
     if not is_participant: raise Http404
     form=DisputeForm(request.POST or None)
     if request.method=='POST' and form.is_valid():
+        if MatchDispute.objects.filter(match=match,filed_by=request.user,status__in=['OPEN','REVIEWING']).exists():
+            messages.info(request,'You already have an open dispute for this match.')
+            return redirect('matches')
         MatchDispute.objects.create(match=match,filed_by=request.user,message=form.cleaned_data['message'])
         result=MatchResult.objects.filter(match=match).first()
         if result and result.status!='CONFIRMED':
