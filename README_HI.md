@@ -1,38 +1,63 @@
 # ROOM ARENA — Hindi Setup Guide
 
-ROOM ARENA एक independent Django + PWA community tournament platform है। अभी competition mode **Clash Squad 4v4** है।
+ROOM ARENA एक independent Django + PWA community tournament platform है। अभी format **Clash Squad 4v4** है।
 
-## अभी उपलब्ध सुविधाएँ
+## Player features
 
-### Player side
-- Username, email, in-game name और unique Game UID से signup
-- Login/logout और player dashboard
-- Squad create करके invite code share करना
-- Invite code से squad join करना (अधिकतम 4 active members)
-- Published tournaments देखना
-- Team captain द्वारा tournament registration request भेजना
-- Registration status देखना: Pending / Approved / Rejected
+- Username, email, in-game name, unique Game UID और password से signup
+- Login/logout, dashboard और player profile edit
+- Squad create करना और invite code से join करना
+- Active team roster देखना
+- Captain दूसरे active member को captain बना सकता है
+- Captain roster member remove कर सकता है और invite code बदल सकता है
+- सामान्य member team छोड़ सकता है; captain को पहले captaincy transfer करनी होगी
+- Pending/approved tournament registration के दौरान roster और invite code changes बंद रहते हैं
+- Database rule एक player को एक समय में एक ही active squad में रहने देता है
+- Tournament detail बिना login देख सकते हैं; registration केवल captain कर सकता है
+- Clash Squad registration के लिए ठीक 4 active players जरूरी हैं
 
-### Admin / Tournament operations
-- Super Admin tournament create/edit/publish कर सकता है
-- Team registration approve/reject कर सकता है
-- Match schedule और status manage कर सकता है
-- Room ID/password और release time set कर सकता है
-- Room credentials केवल approved match में शामिल team के logged-in members को release time के बाद दिखते हैं
-- Team captain provisional match result submit/update कर सकता है
-- Approved team का participant match dispute दर्ज कर सकता है
-- Admin result confirm और dispute resolve कर सकता है
+## Tournament और Admin features
 
-### Platform
-- Responsive dark/orange interface
-- PWA manifest और service worker
-- Local SQLite, production PostgreSQL (DATABASE_URL)
-- Committed database migrations
-- Render deployment configuration
+- Super Admin players, teams, tournaments, registrations, matches, room credentials, results और disputes manage करता है
+- Room ID/password release time से पहले छिपे रहते हैं
+- Room details केवल approved tournament के assigned match participants को दिखते हैं
+- Captain provisional result submit कर सकता है; Admin confirmation जरूरी है
+- Approved participant match dispute भेज सकता है
+- Dispute होने पर captain score edit नहीं कर सकता
+- /health/ database connection check करता है
 
-## Windows पर चलाएँ
+## Render पर Admin account — Shell access की जरूरत नहीं
 
-Python 3.12 और Git install करें। PowerShell में:
+पहला Super Admin web service startup पर environment variables से अपने आप बनाया जा सकता है। **Password को GitHub code में कभी न डालें।**
+
+1. Render Dashboard में अपना ROOM ARENA Web Service खोलें।
+2. Environment section खोलें।
+3. ये तीन environment variables जोड़ें:
+   - DJANGO_SUPERUSER_USERNAME = अपना चुना हुआ admin username
+   - DJANGO_SUPERUSER_EMAIL = अपना admin email
+   - DJANGO_SUPERUSER_PASSWORD = अपना मजबूत password, कम-से-कम 12 characters
+4. Save changes करके redeploy करें।
+5. Gunicorn start होते समय app उस username का superuser बनाएगा, अगर वह पहले से मौजूद नहीं है।
+6. https://YOUR-SERVICE.onrender.com/admin/ खोलकर login करें।
+
+इस प्रक्रिया में Render Shell या python manage.py createsuperuser चलाने की जरूरत नहीं है। यदि username पहले से मौजूद है तो code उसका password नहीं बदलेगा। Admin बन जाने के बाद चाहें तो DJANGO_SUPERUSER_PASSWORD variable हटा सकते हैं।
+
+**ध्यान दें:** GitHub code hosting के secret variables अपने आप set नहीं कर सकता। Existing manually-created Render service में Environment page पर ये तीन values आपको एक बार डालनी होंगी। render.yaml Blueprint deploy में इन्हें secret prompts के रूप में शामिल करता है।
+
+## Render settings
+
+- Runtime: Python 3.12
+- Build command: bash build.sh
+- Start command: gunicorn config.wsgi:application
+- SECRET_KEY: Render में generated long secret
+- DEBUG: False
+- ALLOWED_HOSTS: .onrender.com
+- CSRF_TRUSTED_ORIGINS: https://*.onrender.com
+- DATABASE_URL: PostgreSQL Internal Database URL
+
+render.yaml /health/ health check configure करता है। PostgreSQL database अपने आप create नहीं होता; existing database का URL देना होगा।
+
+## Windows पर local setup
 
     git clone https://github.com/pk8873/free-fire-game-.git
     cd free-fire-game-
@@ -46,42 +71,18 @@ Python 3.12 और Git install करें। PowerShell में:
 Home: http://127.0.0.1:8000/  
 Admin: http://127.0.0.1:8000/admin/
 
-## Render पर Deploy
+## अभी बाकी features / limitations
 
-1. Render Dashboard में PostgreSQL database बनाएँ और Internal Database URL copy करें।
-2. GitHub से pk8873/free-fire-game- repository, branch main पर Web Service बनाएँ।
-3. Runtime Python 3.12 रखें।
-4. Build command: bash build.sh
-5. Start command: gunicorn config.wsgi:application
-6. Environment Variables:
-   - SECRET_KEY = लंबी random secret value (या Render से generate करें)
-   - DEBUG = False
-   - ALLOWED_HOSTS = .onrender.com
-   - CSRF_TRUSTED_ORIGINS = https://*.onrender.com
-   - DATABASE_URL = PostgreSQL Internal Database URL
-7. Deploy के बाद Render Shell में python manage.py createsuperuser चलाएँ।
-8. अपने service URL के अंत में /admin/ खोलकर admin login करें।
+- Automatic knockout bracket और match assignment
+- Live game telemetry, automatic score verification, anti-cheat detection, Garena API
+- Screenshot/evidence upload और automated referee system
+- Email/SMS/push notifications (provider configuration बाकी)
+- Email-based password reset (verified email setup बाकी)
+- Payments, wallet, entry fees, betting या wagering जानबूझकर शामिल नहीं हैं
+- High-load stress test, security audit और backup/restore testing बाकी हैं
 
-render.yaml में DATABASE_URL manually देना होगा। Render के free plan, database retention और availability को अपने account में जाँचें।
+Admin अभी registrations approve करता है, matches बनाता है, room details release करता है और results confirm करता है। Captain का submitted score Admin confirmation तक provisional रहता है।
 
-## Admin को tournament चलाने का क्रम
+## Legal / Rights
 
-1. /admin/ में Tournament बनाएँ और registration deadline/start time set करें।
-2. Tournament status PUBLISHED करें।
-3. Players signup करके teams बनाएँ; captain invite code team members को दे।
-4. Captain के team में ठीक चार active players होने के बाद registration request भेजे।
-5. Admin Registration को approve करे।
-6. Admin Match बनाए और दोनों teams तथा schedule set करे।
-7. Admin RoomCredential में room ID/password और release time भरे।
-8. Match के बाद captain score submit करे; admin result verify करके CONFIRMED करे।
-9. Dispute आने पर admin Match Dispute record review करके status/response update करे।
-
-## अभी क्या नहीं है
-
-Automated bracket, live scoring, notifications, proof/evidence upload, anti-cheat verification, Garena API, captain transfer, team member removal और payments अभी शामिल नहीं हैं। Admin को matches/approvals/room release/results manually manage करने होंगे। Match score user द्वारा submit होता है और admin confirmation तक provisional है।
-
-इस session में Render deployment या production database migration run नहीं किया गया है। Deploy करने के बाद logs और workflows को test करना जरूरी है।
-
-## Legal / Permission
-
-यह independent community platform है, Garena से affiliated या endorsed नहीं है। Garena logo, trademark, game artwork, audio या official assets written permission के बिना उपयोग न करें। इस code से tournament या commercial rights नहीं मिलते। Public/commercial launch, prize, sponsorship monetization या कोई fee लेने से पहले written permission/clarification और qualified Indian legal advice लें।
+यह independent community platform है; Garena से affiliated या endorsed नहीं है। Garena logo, trademark, game art, audio या official assets permission के बिना उपयोग न करें। इस repository से tournament या commercial rights नहीं मिलते। Public/commercial launch, prize, sponsorship monetization या कोई fee लेने से पहले written permission/clarification और qualified Indian legal advice लें।
