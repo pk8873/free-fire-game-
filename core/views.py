@@ -156,7 +156,6 @@ def regenerate_team_code(request,team_id):
             messages.success(request,f'New invite code for {team.name}: {team.join_code}')
     return redirect('dashboard')
 
-@login_required
 def tournament_detail(request,slug):
     tournament=get_object_or_404(Tournament,slug=slug)
     my_teams=Team.objects.filter(members__player=request.user,members__is_active=True).distinct() if request.user.is_authenticated else Team.objects.none()
