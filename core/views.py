@@ -3,12 +3,12 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse, Http404
-from django.db.models import Q
+from django.db.models import Q, Prefetch
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from players.models import PlayerProfile, Team, TeamMember
 from tournaments.models import Tournament, Registration, Match, MatchDispute, MatchResult
-from .forms import SignUpForm, TeamCreateForm, JoinTeamForm, DisputeForm, MatchResultForm
+from .forms import SignUpForm, ProfileForm, TeamCreateForm, JoinTeamForm, DisputeForm, MatchResultForm
 
 def home(request):
     tournaments=Tournament.objects.filter(status='PUBLISHED').order_by('start_at')[:6]
@@ -47,9 +47,9 @@ def logout_view(request):
 @login_required
 def dashboard(request):
     profile=PlayerProfile.objects.filter(user=request.user).first()
-    memberships=TeamMember.objects.filter(player=request.user,is_active=True).select_related('team')
+    memberships=TeamMember.objects.filter(player=request.user,is_active=True).select_related('team','team__captain').prefetch_related(Prefetch('team__members',queryset=TeamMember.objects.filter(is_active=True).select_related('player','player__player_profile')))
     registrations=Registration.objects.filter(team__members__player=request.user,team__members__is_active=True).select_related('team','tournament').distinct().order_by('-created_at')[:10]
-    return render(request,'core/dashboard.html',{'profile':profile,'memberships':memberships,'registrations':registrations,'create_form':TeamCreateForm(),'join_form':JoinTeamForm()})
+    return render(request,'core/dashboard.html',{'profile':profile,'memberships':memberships,'registrations':registrations,'create_form':TeamCreateForm(),'join_form':JoinTeamForm(),'profile_form':ProfileForm(instance=profile)})
 
 @login_required
 def create_team(request):
@@ -80,10 +80,80 @@ def join_team(request):
         else:
             team=Team.objects.filter(join_code=form.cleaned_data['join_code'].strip().upper()).first()
             if not team: messages.error(request,'Invite code not found.')
-            elif team.members.filter(is_active=True).count()>=4: messages.error(request,'This team already has four active players.')
             else:
-                TeamMember.objects.update_or_create(team=team,player=request.user,defaults={'is_active':True})
-                messages.success(request,f'You joined {team.name}.')
+                try:
+                    with transaction.atomic():
+                        locked=Team.objects.select_for_update().get(pk=team.pk)
+                        if locked.members.filter(is_active=True).count()>=4:
+                            messages.error(request,'This team already has four active players.')
+                        else:
+                            TeamMember.objects.update_or_create(team=locked,player=request.user,defaults={'is_active':True})
+                            messages.success(request,f'You joined {locked.name}.')
+                except IntegrityError:
+                    messages.error(request,'You could not be added to this team. Refresh and try again.')
+    return redirect('dashboard')
+
+
+@login_required
+def update_profile(request):
+    profile=get_object_or_404(PlayerProfile,user=request.user)
+    form=ProfileForm(request.POST or None,instance=profile)
+    if request.method=='POST' and form.is_valid():
+        form.save()
+        messages.success(request,'Your player profile has been updated.')
+        return redirect('dashboard')
+    return render(request,'core/form_page.html',{'form':form,'heading':'Edit player profile','intro':'Keep your in-game name and Game UID accurate.','button':'Save profile'})
+
+@login_required
+def leave_team(request,team_id):
+    if request.method!='POST': return redirect('dashboard')
+    with transaction.atomic():
+        team=get_object_or_404(Team.objects.select_for_update(),pk=team_id)
+        membership=TeamMember.objects.filter(team=team,player=request.user,is_active=True).first()
+        if not membership: raise Http404
+        if team.captain_id==request.user.id:
+            messages.error(request,'Captain must transfer captaincy to another active member before leaving.')
+        elif Registration.objects.filter(team=team,status__in=['PENDING','APPROVED']).exists():
+            messages.error(request,'This team has an active tournament registration. Ask the admin to reject or complete it before changing the roster.')
+        else:
+            membership.is_active=False
+            membership.save(update_fields=['is_active'])
+            messages.success(request,f'You left {team.name}.')
+    return redirect('dashboard')
+
+@login_required
+def manage_team_member(request,team_id,member_id):
+    if request.method!='POST': return redirect('dashboard')
+    action=request.POST.get('action','remove')
+    with transaction.atomic():
+        team=get_object_or_404(Team.objects.select_for_update(),pk=team_id,captain=request.user)
+        member=get_object_or_404(TeamMember.objects.select_for_update(),pk=member_id,team=team,is_active=True)
+        if Registration.objects.filter(team=team,status__in=['PENDING','APPROVED']).exists():
+            messages.error(request,'Roster is locked while this team has a pending or approved tournament registration.')
+        elif member.player_id==team.captain_id:
+            messages.error(request,'Captain cannot remove themselves. Transfer captaincy first.')
+        elif action=='transfer':
+            team.captain=member.player
+            team.save(update_fields=['captain'])
+            messages.success(request,f'{member.player.username} is now the team captain.')
+        else:
+            member.is_active=False
+            member.save(update_fields=['is_active'])
+            messages.success(request,f'{member.player.username} was removed from the team.')
+    return redirect('dashboard')
+
+@login_required
+def regenerate_team_code(request,team_id):
+    if request.method!='POST': return redirect('dashboard')
+    with transaction.atomic():
+        team=get_object_or_404(Team.objects.select_for_update(),pk=team_id,captain=request.user)
+        if Registration.objects.filter(team=team,status__in=['PENDING','APPROVED']).exists():
+            messages.error(request,'Invite code cannot be changed while a tournament registration is pending or approved.')
+        else:
+            from players.models import make_team_code
+            team.join_code=make_team_code()
+            team.save(update_fields=['join_code'])
+            messages.success(request,f'New invite code for {team.name}: {team.join_code}')
     return redirect('dashboard')
 
 @login_required
