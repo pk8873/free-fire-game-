@@ -198,8 +198,9 @@ def matches(request):
     now=timezone.now()
     for match in match_list:
         item={'match':match,'room':None,'result':getattr(match,'result',None)}
-        if hasattr(match,'room_credentials') and match.room_credentials.release_at<=now and match.room_credentials and (match.team_a_id in team_ids or match.team_b_id in team_ids):
-            item['room']=match.room_credentials
+        credential=getattr(match,'room_credentials',None)
+        if credential and credential.release_at<=now and (match.team_a_id in team_ids or match.team_b_id in team_ids):
+            item['room']=credential
         visible.append(item)
     return render(request,'core/matches.html',{'items':visible})
 
@@ -211,8 +212,8 @@ def submit_result(request,match_id):
     approved=Registration.objects.filter(tournament=match.tournament,team_id=captain_team.id,status='APPROVED').exists() if captain_team else False
     if not captain_team or not approved: raise Http404
     existing=MatchResult.objects.filter(match=match).first()
-    if existing and existing.status in ('CONFIRMED','DISPUTED'):
-        messages.info(request,'This result is locked for admin review. Contact the tournament admin if it needs correction.')
+    if existing:
+        messages.info(request,'A result has already been submitted. Use the dispute form if you disagree; only an admin can amend the submitted score.')
         return redirect('matches')
     form=MatchResultForm(request.POST or None,initial={'score_a':existing.score_a,'score_b':existing.score_b} if existing else None)
     if request.method=='POST' and form.is_valid():
@@ -227,8 +228,8 @@ def submit_result(request,match_id):
 @login_required
 def file_dispute(request,match_id):
     match=get_object_or_404(Match,pk=match_id)
-    team_ids=TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True)
-    approved_team_ids=Registration.objects.filter(tournament=match.tournament,team_id__in=team_ids,status='APPROVED').values_list('team_id',flat=True)
+    team_ids=list(TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True))
+    approved_team_ids=list(Registration.objects.filter(tournament=match.tournament,team_id__in=team_ids,status='APPROVED').values_list('team_id',flat=True))
     is_participant=match.team_a_id in approved_team_ids or match.team_b_id in approved_team_ids
     if not is_participant: raise Http404
     form=DisputeForm(request.POST or None)
