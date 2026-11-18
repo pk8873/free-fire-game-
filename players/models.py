@@ -18,6 +18,8 @@ class Team(models.Model):
     captain = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='captained_teams')
     join_code = models.CharField(max_length=8, unique=True, default=make_team_code, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
+    @property
+    def active_member_count(self): return self.members.filter(is_active=True).count()
     def __str__(self): return self.name
 
 class TeamMember(models.Model):
