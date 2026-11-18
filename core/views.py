@@ -134,8 +134,8 @@ def submit_result(request,match_id):
     approved=Registration.objects.filter(tournament=match.tournament,team_id=captain_team.id,status='APPROVED').exists() if captain_team else False
     if not captain_team or not approved: raise Http404
     existing=MatchResult.objects.filter(match=match).first()
-    if existing and existing.status=='CONFIRMED':
-        messages.info(request,'This result has already been confirmed by the tournament admin.')
+    if existing and existing.status in ('CONFIRMED','DISPUTED'):
+        messages.info(request,'This result is locked for admin review. Contact the tournament admin if it needs correction.')
         return redirect('matches')
     form=MatchResultForm(request.POST or None,initial={'score_a':existing.score_a,'score_b':existing.score_b} if existing else None)
     if request.method=='POST' and form.is_valid():
