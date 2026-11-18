@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
 from django.db.models import Q
+from django.core.exceptions import ValidationError
 
 class Tournament(models.Model):
     STATUS=[('DRAFT','Draft'),('PUBLISHED','Published'),('CLOSED','Registration closed'),('LIVE','Live'),('COMPLETED','Completed'),('CANCELLED','Cancelled'),('UNDER_REVIEW','Under review')]
@@ -55,6 +56,12 @@ class MatchResult(models.Model):
     status=models.CharField(max_length=16,choices=[('SUBMITTED','Submitted'),('CONFIRMED','Confirmed'),('DISPUTED','Disputed')],default='SUBMITTED')
     admin_note=models.TextField(blank=True)
     updated_at=models.DateTimeField(auto_now=True)
+    def clean(self):
+        super().clean()
+        if self.winner_id and self.match_id:
+            valid_ids={self.match.team_a_id,self.match.team_b_id}
+            if self.winner_id not in valid_ids:
+                raise ValidationError({'winner':'Winner must be one of the two teams in this match.'})
     def __str__(self): return f'Result: {self.match}'
 
 class MatchDispute(models.Model):
