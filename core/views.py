@@ -172,8 +172,8 @@ def register_team(request,slug):
         messages.error(request,'Registration is closed.')
     elif active_count!=4:
         messages.error(request,'A Clash Squad team must have exactly four active players.')
-    elif Registration.objects.filter(tournament=tournament,team=team).exists():
-        messages.info(request,'This team is already registered.')
+    elif Registration.objects.filter(tournament=tournament,team=team).exclude(status='REJECTED').exists():
+        messages.info(request,'This team already has a pending or approved registration.')
     elif tournament.registrations.exclude(status='REJECTED').count()>=tournament.max_teams:
         messages.error(request,'All team slots are currently full.')
     else:
@@ -183,7 +183,7 @@ def register_team(request,slug):
                 if locked_tournament.registrations.exclude(status='REJECTED').count()>=locked_tournament.max_teams:
                     messages.error(request,'All team slots are currently full.')
                 else:
-                    Registration.objects.create(tournament=locked_tournament,team=team)
+                    Registration.objects.update_or_create(tournament=locked_tournament,team=team,defaults={'status':'PENDING'})
                     messages.success(request,'Registration request sent. It will appear as pending until an admin approves it.')
         except IntegrityError:
             messages.info(request,'This team is already registered for this tournament.')
