@@ -14,16 +14,29 @@ class SignUpForm(UserCreationForm):
         fields=('username','email','in_game_name','game_uid','phone','password1','password2')
     def clean_game_uid(self):
         value=self.cleaned_data['game_uid'].strip()
-        if PlayerProfile.objects.filter(game_uid=value).exists():
+        if PlayerProfile.objects.filter(game_uid__iexact=value).exists():
             raise forms.ValidationError('This Game UID is already registered.')
         return value
     def save(self, commit=True):
-        user=super().save(commit=commit)
-        if commit:
-            user.email=self.cleaned_data['email']
+        from django.db import transaction
+        if not commit:
+            return super().save(commit=False)
+        with transaction.atomic():
+            user=super().save(commit=True)
+            user.email=self.cleaned_data['email'].strip()
             user.save(update_fields=['email'])
             PlayerProfile.objects.create(user=user,game_uid=self.cleaned_data['game_uid'].strip(),in_game_name=self.cleaned_data['in_game_name'].strip(),phone=self.cleaned_data.get('phone','').strip())
         return user
+
+class ProfileForm(forms.ModelForm):
+    class Meta:
+        model=PlayerProfile
+        fields=('in_game_name','game_uid','phone')
+    def clean_game_uid(self):
+        value=self.cleaned_data['game_uid'].strip()
+        if PlayerProfile.objects.filter(game_uid__iexact=value).exclude(pk=self.instance.pk).exists():
+            raise forms.ValidationError('This Game UID is already registered.')
+        return value
 
 class TeamCreateForm(forms.ModelForm):
     class Meta:
