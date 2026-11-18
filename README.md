@@ -1,52 +1,73 @@
-# ROOM ARENA — Phase 1
+# ROOM ARENA — Phase 1 Player Portal
 
-Responsive Django + installable PWA tournament-management starter for an independent Free Fire MAX community Clash Squad (4v4) platform.
+ROOM ARENA is an independent Django + installable PWA community tournament platform. Current competition mode is **Clash Squad 4v4**.
 
-## Render deployment
+## Features included
 
-1. Push this repository to GitHub (already connected to this repository).
-2. In Render, create a **PostgreSQL** database. Copy its **Internal Database URL**.
-3. Create a **Web Service** from `pk8873/free-fire-game-` (branch: `main`).
-4. Set:
-   - Build command: `bash build.sh`
-   - Start command: `gunicorn config.wsgi:application`
-   - Runtime: Python 3.12
-5. Add environment variables:
-   - `SECRET_KEY`: a long random secret (Render can generate one)
-   - `DEBUG`: `False`
-   - `ALLOWED_HOSTS`: `.onrender.com`
-   - `CSRF_TRUSTED_ORIGINS`: `https://*.onrender.com`
-   - `DATABASE_URL`: the PostgreSQL **Internal Database URL**
-6. Deploy. In the service Shell run `python manage.py createsuperuser`, then sign in at `/admin/`.
+### Player side
+- Player signup with username, email, in-game name and unique Game UID
+- Login/logout and player dashboard
+- Create a squad and share its invite code
+- Join a squad using an invite code (maximum four active members)
+- View published tournaments and request registration as team captain
+- Registration status view (pending / approved / rejected)
 
-You can also use Render Blueprint with `render.yaml`; it prompts for `DATABASE_URL` because database provisioning and plan availability vary by account/region.
+### Tournament operations
+- Super Admin manages tournaments, team registrations, match schedule and match status
+- Admin adds room ID/password and a release timestamp
+- Room details are only shown to logged-in players belonging to one of the two match teams, after the release timestamp, in an approved tournament
+- A team captain can submit/update a provisional match result
+- A participant from an approved team can file a match dispute
+- Admin reviews/confirms results and resolves disputes
 
-## Local setup (Windows)
+### Platform
+- Responsive dark/orange interface
+- PWA manifest and service worker
+- SQLite for local development; PostgreSQL via DATABASE_URL in production
+- Committed database migrations
+- WhiteNoise static files and Render Blueprint configuration
 
-```powershell
-py -3.12 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-python manage.py makemigrations players tournaments
-python manage.py migrate
-python manage.py createsuperuser
-python manage.py runserver
-```
+## Deploy on Render
 
-Open `http://127.0.0.1:8000/` and `http://127.0.0.1:8000/admin/`.
+1. Open Render Dashboard and create a PostgreSQL database. Copy its **Internal Database URL**.
+2. Create a Web Service from GitHub repository pk8873/free-fire-game-, branch main.
+3. Runtime: Python 3.12.
+4. Build command: bash build.sh
+5. Start command: gunicorn config.wsgi:application
+6. Add environment variables:
+   - SECRET_KEY: long random secret (or let Render generate it)
+   - DEBUG: False
+   - ALLOWED_HOSTS: .onrender.com
+   - CSRF_TRUSTED_ORIGINS: https://*.onrender.com
+   - DATABASE_URL: PostgreSQL Internal Database URL
+7. Deploy. In the Render service Shell run python manage.py createsuperuser.
+8. Open your service URL plus /admin/ and sign in.
 
-## Current scope
+The render.yaml Blueprint asks for DATABASE_URL rather than creating a database automatically. Render database plans, free availability and retention can vary; check current terms in your account.
 
-- Responsive landing page, PWA manifest and service worker
-- Tournament, player profile, team, team member, registration, match, room credential and match result data models
-- Django Admin CRUD for Super Admin
-- SQLite locally; PostgreSQL through `DATABASE_URL` in production
-- Render build and start configuration
+## Local setup (Windows / Python 3.12)
 
-## Not yet implemented
+    py -3.12 -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    python manage.py migrate
+    python manage.py createsuperuser
+    python manage.py runserver
 
-Player-facing signup/login and dashboards, public team creation/join, player-side tournament registration, private room credential delivery, evidence uploads, dispute workflow, notifications, automated brackets and payments are not implemented yet. Four active team members are a tournament rule but are not yet enforced by a dedicated registration workflow. Super Admin must manually verify rosters and registrations.
+Open http://127.0.0.1:8000/. Admin: http://127.0.0.1:8000/admin/.
 
-## Legal and platform safety
+## Important limitations
 
-This is an independent community project and is not affiliated with or endorsed by Garena. Do not use Garena trademarks, game artwork, sounds, or official branding without written permission. This version does not implement player deposits, paid-entry, betting, or wagering. Before commercial operation, prize promotions, or charging any fee, obtain qualified Indian legal advice and written permission/clarification from the relevant rights holder and authorities.
+This is a functional Phase 1 foundation, not a fully audited high-scale esports platform.
+
+- No automated bracket generation, live scoring, push/email/SMS notifications, player evidence upload, anti-cheat verification or Garena API integration.
+- Match scores are user-submitted and remain provisional until an admin confirms them. A dispute form is available; it is not an independent referee or evidence-verification system.
+- Admin must create matches, approve registrations, release room details, and confirm results manually.
+- Team size is checked when a captain requests tournament registration. The starter does not yet provide team-member removal, captain transfer or self-service team disband.
+- Registration capacity checks are application-level; a high-concurrency production system needs database-level locking and additional load/security testing.
+- No payment, entry-fee, wallet, betting or wagering feature is included.
+- Render deployment and production database migrations have not been executed from this repository session. Run deployment and inspect logs before announcing the service as live.
+
+## Legal / rights
+
+ROOM ARENA is independent and is not affiliated with or endorsed by Garena. Do not use Garena logos, trademarks, game art, audio, or official assets without permission. This code does not grant tournament or commercial rights. Before public/commercial operation, prizes, sponsorship monetization or charging any fee, get written permission/clarification and qualified Indian legal advice.
