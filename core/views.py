@@ -7,8 +7,8 @@ from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from players.models import PlayerProfile, Team, TeamMember
-from tournaments.models import Tournament, Registration, Match, MatchDispute
-from .forms import SignUpForm, TeamCreateForm, JoinTeamForm, DisputeForm
+from tournaments.models import Tournament, Registration, Match, MatchDispute, MatchResult
+from .forms import SignUpForm, TeamCreateForm, JoinTeamForm, DisputeForm, MatchResultForm
 
 def home(request):
     tournaments=Tournament.objects.filter(status='PUBLISHED').order_by('start_at')[:6]
@@ -120,11 +120,32 @@ def matches(request):
     visible=[]
     now=timezone.now()
     for match in match_list:
-        item={'match':match,'room':None}
+        item={'match':match,'room':None,'result':getattr(match,'result',None)}
         if hasattr(match,'room_credentials') and match.room_credentials.release_at<=now and match.room_credentials and (match.team_a_id in team_ids or match.team_b_id in team_ids):
             item['room']=match.room_credentials
         visible.append(item)
     return render(request,'core/matches.html',{'items':visible})
+
+
+@login_required
+def submit_result(request,match_id):
+    match=get_object_or_404(Match.objects.select_related('tournament','team_a','team_b'),pk=match_id)
+    captain_team=Team.objects.filter(captain=request.user,id__in=[match.team_a_id,match.team_b_id]).first()
+    approved=Registration.objects.filter(tournament=match.tournament,team_id=captain_team.id,status='APPROVED').exists() if captain_team else False
+    if not captain_team or not approved: raise Http404
+    existing=MatchResult.objects.filter(match=match).first()
+    if existing and existing.status=='CONFIRMED':
+        messages.info(request,'This result has already been confirmed by the tournament admin.')
+        return redirect('matches')
+    form=MatchResultForm(request.POST or None,initial={'score_a':existing.score_a,'score_b':existing.score_b} if existing else None)
+    if request.method=='POST' and form.is_valid():
+        a=form.cleaned_data['score_a']; b=form.cleaned_data['score_b']
+        winner=match.team_a if a>b else match.team_b if b>a else None
+        result,created=MatchResult.objects.get_or_create(match=match)
+        result.score_a=a; result.score_b=b; result.winner=winner; result.status='SUBMITTED'; result.save()
+        messages.success(request,'Match result submitted for admin review.')
+        return redirect('matches')
+    return render(request,'core/form_page.html',{'form':form,'heading':'Submit match result','intro':f'{match.tournament.title} · Match {match.match_number}. Scores are provisional until admin confirmation.','button':'Submit result'})
 
 @login_required
 def file_dispute(request,match_id):
