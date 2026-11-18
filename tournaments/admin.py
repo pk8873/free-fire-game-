@@ -1,16 +1,18 @@
 from django.contrib import admin
-from .models import Tournament, Registration, Match, RoomCredential, MatchResult
+from .models import Tournament, Registration, Match, RoomCredential, MatchResult, MatchDispute
 
 @admin.register(Tournament)
 class TournamentAdmin(admin.ModelAdmin):
-    list_display=('title','mode','start_at','status','max_teams')
+    list_display=('title','mode','start_at','registration_deadline','status','max_teams')
     list_filter=('status','start_at')
+    search_fields=('title','slug')
     prepopulated_fields={'slug':('title',)}
 
 @admin.register(Registration)
 class RegistrationAdmin(admin.ModelAdmin):
     list_display=('tournament','team','status','created_at')
     list_filter=('status','tournament')
+    search_fields=('team__name','tournament__title')
 
 @admin.register(Match)
 class MatchAdmin(admin.ModelAdmin):
@@ -20,16 +22,18 @@ class MatchAdmin(admin.ModelAdmin):
 @admin.register(RoomCredential)
 class RoomCredentialAdmin(admin.ModelAdmin):
     list_display=('match','room_id','release_at')
-    def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser
-    def has_add_permission(self, request):
-        return request.user.is_superuser
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
+    def has_view_permission(self,request,obj=None): return request.user.is_superuser
+    def has_add_permission(self,request): return request.user.is_superuser
+    def has_change_permission(self,request,obj=None): return request.user.is_superuser
+    def has_delete_permission(self,request,obj=None): return request.user.is_superuser
 
 @admin.register(MatchResult)
 class MatchResultAdmin(admin.ModelAdmin):
     list_display=('match','score_a','score_b','winner','status','updated_at')
     list_filter=('status',)
+
+@admin.register(MatchDispute)
+class MatchDisputeAdmin(admin.ModelAdmin):
+    list_display=('match','filed_by','status','created_at')
+    list_filter=('status',)
+    readonly_fields=('match','filed_by','message','created_at')
