@@ -1,49 +1,64 @@
-# ROOM ARENA — Phase 1 Player Portal
+# ROOM ARENA — Phase 1 tournament platform
 
-ROOM ARENA is an independent Django + installable PWA community tournament platform. Current competition mode is **Clash Squad 4v4**.
+Independent Django + installable PWA community tournament platform. Current format: **Clash Squad 4v4**.
 
-## Features included
+## Implemented player features
 
-### Player side
-- Player signup with username, email, in-game name and unique Game UID
-- Login/logout and player dashboard
-- Create a squad and share its invite code
-- Join a squad using an invite code (maximum four active members)
-- View published tournaments and request registration as team captain
-- Registration status view (pending / approved / rejected)
+- Player signup with username, email, in-game name, unique Game UID and password
+- Login/logout, player dashboard and profile editing
+- Create a squad, join by invite code, view active roster
+- Captain can transfer captaincy, remove squad members and rotate invite codes
+- Members can leave a squad; captaincy must be transferred first
+- Roster changes are blocked while a team has a pending or approved tournament registration
+- Database constraint prevents a player from being active in multiple squads
+- Public tournament detail pages; captain-only registration request
+- Four active players required for Clash Squad registration
+- Registration capacity checked inside a database transaction
+- Player registration status
 
-### Tournament operations
-- Super Admin manages tournaments, team registrations, match schedule and match status
-- Admin adds room ID/password and a release timestamp
-- Room details are only shown to logged-in players belonging to one of the two match teams, after the release timestamp, in an approved tournament
-- A team captain can submit/update a provisional match result
-- A participant from an approved team can file a match dispute
-- Admin reviews/confirms results and resolves disputes
+## Tournament/admin features
 
-### Platform
-- Responsive dark/orange interface
-- PWA manifest and service worker
-- SQLite for local development; PostgreSQL via DATABASE_URL in production
-- Committed database migrations
-- WhiteNoise static files and Render Blueprint configuration
+- Django Super Admin manages players, squads, tournaments, registrations, matches, room credentials, results and disputes
+- Match room ID/password are hidden until the configured release time and only shown to approved participants in the assigned teams
+- Captain can submit a provisional score; admin confirms it
+- Participants from approved teams can report a match issue
+- Disputed results are locked from further captain edits
+- Admin can review/resolve disputes and edit final match records
+- /health/ checks application database connectivity
 
-## Deploy on Render
+## Platform
 
-1. Open Render Dashboard and create a PostgreSQL database. Copy its **Internal Database URL**.
-2. Create a Web Service from GitHub repository pk8873/free-fire-game-, branch main.
-3. Runtime: Python 3.12.
-4. Build command: bash build.sh
-5. Start command: gunicorn config.wsgi:application
-6. Add environment variables:
-   - SECRET_KEY: long random secret (or let Render generate it)
-   - DEBUG: False
-   - ALLOWED_HOSTS: .onrender.com
-   - CSRF_TRUSTED_ORIGINS: https://*.onrender.com
-   - DATABASE_URL: PostgreSQL Internal Database URL
-7. Deploy. In the Render service Shell run python manage.py createsuperuser.
-8. Open your service URL plus /admin/ and sign in.
+- Responsive dark/orange interface and PWA manifest/service worker
+- SQLite locally; PostgreSQL via DATABASE_URL on Render
+- Committed migrations, WhiteNoise static serving and GitHub Actions checks
 
-The render.yaml Blueprint asks for DATABASE_URL rather than creating a database automatically. Render database plans, free availability and retention can vary; check current terms in your account.
+## Render deployment — no Shell required for first admin
+
+The app can create its first Super Admin during web startup using environment variables. **Never put the admin password in GitHub or in source code.**
+
+1. In Render, open the existing ROOM ARENA Web Service → Environment.
+2. Add these three environment variables (use your own values):
+   - DJANGO_SUPERUSER_USERNAME — choose an admin username
+   - DJANGO_SUPERUSER_EMAIL — your admin email
+   - DJANGO_SUPERUSER_PASSWORD — choose a unique password with at least 12 characters
+3. Save changes and trigger a deploy/redeploy. No Render Shell or createsuperuser command is needed.
+4. When Gunicorn starts, the WSGI startup hook creates the superuser if that username does not already exist. It does not reset an existing user's password.
+5. Open https://YOUR-SERVICE.onrender.com/admin/ and log in.
+
+If the username already exists, the bootstrap deliberately does not change its password. If the app log says bootstrap skipped, verify all three environment variables and the 12-character minimum. Remove the bootstrap password variable after the first successful admin creation if you prefer; the existing admin account remains.
+
+### Render service settings
+
+- Runtime: Python 3.12
+- Build command: bash build.sh
+- Start command: gunicorn config.wsgi:application
+- SECRET_KEY: generate a long secret in Render
+- DEBUG: False
+- ALLOWED_HOSTS: .onrender.com
+- CSRF_TRUSTED_ORIGINS: https://*.onrender.com
+- DATABASE_URL: PostgreSQL Internal Database URL
+
+The Blueprint (render.yaml) includes the three admin bootstrap variables as secret prompts and configures /health/ as the health-check path. It does not create a PostgreSQL database automatically; provide an existing database URL. For an existing manually-created Render service, add the three bootstrap variables in its Environment page; changing GitHub code alone cannot create or set hosting secrets.
 
 ## Local setup (Windows / Python 3.12)
 
@@ -54,20 +69,21 @@ The render.yaml Blueprint asks for DATABASE_URL rather than creating a database 
     python manage.py createsuperuser
     python manage.py runserver
 
-Open http://127.0.0.1:8000/. Admin: http://127.0.0.1:8000/admin/.
+Home: http://127.0.0.1:8000/  
+Admin: http://127.0.0.1:8000/admin/
 
-## Important limitations
+## Still not implemented / limitations
 
-This is a functional Phase 1 foundation, not a fully audited high-scale esports platform.
+- Automated single/double-elimination bracket generation and automatic match assignment
+- Live game telemetry, automatic score verification, anti-cheat detection or Garena API integration
+- Evidence/screenshot uploads and automated referee workflow
+- Email/SMS/push notifications (SMTP/push provider not configured)
+- Player password reset by email (requires verified email delivery configuration)
+- Payment, wallet, entry fee, betting or wagering features are intentionally excluded
+- High-concurrency stress testing, security audit and production backup/restore testing remain necessary
 
-- No automated bracket generation, live scoring, push/email/SMS notifications, player evidence upload, anti-cheat verification or Garena API integration.
-- Match scores are user-submitted and remain provisional until an admin confirms them. A dispute form is available; it is not an independent referee or evidence-verification system.
-- Admin must create matches, approve registrations, release room details, and confirm results manually.
-- Team size is checked when a captain requests tournament registration. The starter does not yet provide team-member removal, captain transfer or self-service team disband.
-- Registration capacity checks are application-level; a high-concurrency production system needs database-level locking and additional load/security testing.
-- No payment, entry-fee, wallet, betting or wagering feature is included.
-- Render deployment and production database migrations have not been executed from this repository session. Run deployment and inspect logs before announcing the service as live.
+Admin manually approves registrations, creates matches, releases room details and confirms results. Submitted scores are provisional until admin confirmation.
 
-## Legal / rights
+## Rights and legal
 
-ROOM ARENA is independent and is not affiliated with or endorsed by Garena. Do not use Garena logos, trademarks, game art, audio, or official assets without permission. This code does not grant tournament or commercial rights. Before public/commercial operation, prizes, sponsorship monetization or charging any fee, get written permission/clarification and qualified Indian legal advice.
+ROOM ARENA is independent and is not affiliated with or endorsed by Garena. Do not use Garena logos, trademarks, game art, audio or official assets without permission. This repository does not grant tournament or commercial rights. Before public/commercial operation, prizes, sponsorship monetization or charging any fee, obtain written permission/clarification and qualified Indian legal advice.
