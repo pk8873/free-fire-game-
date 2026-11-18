@@ -1,5 +1,6 @@
 from datetime import timedelta
 from django.contrib.auth.models import User
+from django.db import IntegrityError
 from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
@@ -146,5 +147,6 @@ class RoomArenaWorkflowTests(TestCase):
         team_a=Team.objects.create(name='Squad A',captain=captain_a)
         team_b=Team.objects.create(name='Squad B',captain=captain_b)
         TeamMember.objects.create(team=team_a,player=player)
-        TeamMember.objects.create(team=team_b,player=player)
+        with self.assertRaises(IntegrityError):
+            TeamMember.objects.create(team=team_b,player=player)
         self.assertEqual(TeamMember.objects.filter(player=player,is_active=True).count(),1)
