@@ -5,6 +5,7 @@ services:
     buildCommand: bash build.sh
     startCommand: gunicorn config.wsgi:application
     plan: free
+    healthCheckPath: /health/
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.8
@@ -17,4 +18,10 @@ services:
       - key: CSRF_TRUSTED_ORIGINS
         value: https://*.onrender.com
       - key: DATABASE_URL
+        sync: false
+      - key: DJANGO_SUPERUSER_USERNAME
+        sync: false
+      - key: DJANGO_SUPERUSER_EMAIL
+        sync: false
+      - key: DJANGO_SUPERUSER_PASSWORD
         sync: false
