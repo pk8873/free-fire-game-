@@ -1,6 +1,7 @@
 from uuid import uuid4
 from django.conf import settings
 from django.db import models
+from django.db.models import Q
 
 def make_team_code():
     return uuid4().hex[:8].upper()
@@ -28,5 +29,5 @@ class TeamMember(models.Model):
     is_active = models.BooleanField(default=True)
     joined_at = models.DateTimeField(auto_now_add=True)
     class Meta:
-        constraints=[models.UniqueConstraint(fields=['team','player'], name='unique_team_player')]
+        constraints=[models.UniqueConstraint(fields=['team','player'], name='unique_team_player'),models.UniqueConstraint(fields=['player'],condition=Q(is_active=True),name='one_active_team_per_player')]
     def __str__(self): return f'{self.player} — {self.team}'
