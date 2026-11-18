@@ -151,3 +151,33 @@ class RoomArenaWorkflowTests(TestCase):
             with transaction.atomic():
                 TeamMember.objects.create(team=team_b,player=player)
         self.assertEqual(TeamMember.objects.filter(player=player,is_active=True).count(),1)
+
+    def test_rejected_team_can_reapply(self):
+        team=self.make_full_team('Juliet')
+        tournament=self.make_tournament()
+        Registration.objects.create(tournament=tournament,team=team,status='REJECTED')
+        self.client.force_login(team.captain)
+        response=self.client.post(reverse('register-team',args=[tournament.slug]),{'team_id':team.id})
+        self.assertRedirects(response,reverse('tournament-detail',args=[tournament.slug]))
+        registration=Registration.objects.get(tournament=tournament,team=team)
+        self.assertEqual(registration.status,'PENDING')
+
+    def test_member_can_leave_team_without_active_registration(self):
+        team=self.make_full_team('Kilo')
+        member=team.members.filter(is_active=True).exclude(player=team.captain).first()
+        self.client.force_login(member.player)
+        response=self.client.post(reverse('leave-team',args=[team.id]))
+        self.assertRedirects(response,reverse('dashboard'))
+        member.refresh_from_db()
+        self.assertFalse(member.is_active)
+
+    def test_member_cannot_leave_team_with_pending_registration(self):
+        team=self.make_full_team('Lima')
+        tournament=self.make_tournament()
+        Registration.objects.create(tournament=tournament,team=team,status='PENDING')
+        member=team.members.filter(is_active=True).exclude(player=team.captain).first()
+        self.client.force_login(member.player)
+        response=self.client.post(reverse('leave-team',args=[team.id]))
+        self.assertRedirects(response,reverse('dashboard'))
+        member.refresh_from_db()
+        self.assertTrue(member.is_active)
