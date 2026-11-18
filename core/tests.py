@@ -112,3 +112,39 @@ class RoomArenaWorkflowTests(TestCase):
         response=self.client.get(reverse('health'))
         self.assertEqual(response.status_code,200)
         self.assertEqual(response.json()['status'],'ok')
+
+    def test_other_captain_cannot_overwrite_submitted_result(self):
+        team_a=self.make_full_team('Hotel')
+        team_b=self.make_full_team('India')
+        tournament=self.make_tournament()
+        Registration.objects.create(tournament=tournament,team=team_a,status='APPROVED')
+        Registration.objects.create(tournament=tournament,team=team_b,status='APPROVED')
+        match=Match.objects.create(tournament=tournament,match_number=1,team_a=team_a,team_b=team_b)
+        MatchResult.objects.create(match=match,score_a=4,score_b=1,winner=team_a,status='SUBMITTED')
+        self.client.force_login(team_b.captain)
+        response=self.client.post(reverse('submit-result',args=[match.id]),{'score_a':0,'score_b':4})
+        self.assertRedirects(response,reverse('matches'))
+        result=MatchResult.objects.get(match=match)
+        self.assertEqual(result.score_a,4)
+        self.assertEqual(result.winner,team_a)
+
+    def test_player_can_update_profile(self):
+        player=self.make_player('profile_player')
+        self.client.force_login(player)
+        response=self.client.post(reverse('update-profile'),{
+            'in_game_name':'Updated IGN','game_uid':'UID-UPDATED','phone':'9999999999'
+        })
+        self.assertRedirects(response,reverse('dashboard'))
+        profile=PlayerProfile.objects.get(user=player)
+        self.assertEqual(profile.in_game_name,'Updated IGN')
+        self.assertEqual(profile.game_uid,'UID-UPDATED')
+
+    def test_player_cannot_join_two_active_teams(self):
+        captain_a=self.make_player('squad_a_captain')
+        captain_b=self.make_player('squad_b_captain')
+        player=self.make_player('one_squad_only')
+        team_a=Team.objects.create(name='Squad A',captain=captain_a)
+        team_b=Team.objects.create(name='Squad B',captain=captain_b)
+        TeamMember.objects.create(team=team_a,player=player)
+        TeamMember.objects.create(team=team_b,player=player)
+        self.assertEqual(TeamMember.objects.filter(player=player,is_active=True).count(),1)
