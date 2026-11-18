@@ -5,7 +5,7 @@ from django.test import TestCase
 from django.urls import reverse
 from django.utils import timezone
 from players.models import PlayerProfile, Team, TeamMember
-from tournaments.models import Tournament, Registration, Match, RoomCredential, MatchResult
+from tournaments.models import Tournament, Registration, Match, RoomCredential, MatchResult, MatchDispute
 
 class RoomArenaWorkflowTests(TestCase):
     def make_player(self, username):
@@ -181,3 +181,20 @@ class RoomArenaWorkflowTests(TestCase):
         self.assertRedirects(response,reverse('dashboard'))
         member.refresh_from_db()
         self.assertTrue(member.is_active)
+
+    def test_dispute_locks_provisional_result_and_duplicate_open_dispute_is_blocked(self):
+        team_a=self.make_full_team('Mike')
+        team_b=self.make_full_team('November')
+        tournament=self.make_tournament()
+        Registration.objects.create(tournament=tournament,team=team_a,status='APPROVED')
+        match=Match.objects.create(tournament=tournament,match_number=1,team_a=team_a,team_b=team_b)
+        MatchResult.objects.create(match=match,score_a=3,score_b=2,winner=team_a,status='SUBMITTED')
+        member=team_a.members.filter(is_active=True).exclude(player=team_a.captain).first()
+        self.client.force_login(member.player)
+        response=self.client.post(reverse('file-dispute',args=[match.id]),{'message':'The submitted score does not match the match record.'})
+        self.assertRedirects(response,reverse('matches'))
+        result=MatchResult.objects.get(match=match)
+        self.assertEqual(result.status,'DISPUTED')
+        self.assertEqual(MatchDispute.objects.filter(match=match,filed_by=member.player).count(),1)
+        self.client.post(reverse('file-dispute',args=[match.id]),{'message':'Another duplicate dispute.'})
+        self.assertEqual(MatchDispute.objects.filter(match=match,filed_by=member.player).count(),1)
