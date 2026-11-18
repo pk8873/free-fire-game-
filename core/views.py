@@ -12,7 +12,7 @@ from .forms import SignUpForm, TeamCreateForm, JoinTeamForm, DisputeForm
 
 def home(request):
     tournaments=Tournament.objects.filter(status='PUBLISHED').order_by('start_at')[:6]
-    return render(request,'core/home.html',{'tournaments':tournaments})
+    return render(request,'core/home.html',{'tournaments':tournaments,'now':timezone.now()})
 
 def signup_view(request):
     if request.user.is_authenticated: return redirect('dashboard')
