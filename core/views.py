@@ -1,4 +1,3 @@
-import json
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render
 from tournaments.models import Tournament
@@ -8,7 +7,7 @@ def home(request):
     return render(request, 'core/home.html', {'tournaments': tournaments})
 
 def manifest(request):
-    data={'name':'ROOM ARENA','short_name':'ROOM ARENA','start_url':'/','display':'standalone','background_color':'#090d14','theme_color':'#ff5a36','description':'Community Clash Squad tournament hub','icons':[{'src':'/static/pwa/icon-192.png','sizes':'192x192','type':'image/png'},{'src':'/static/pwa/icon-512.png','sizes':'512x512','type':'image/png'}]}
+    data={'name':'ROOM ARENA','short_name':'ROOM ARENA','start_url':'/','display':'standalone','background_color':'#090d14','theme_color':'#ff5a36','description':'Community Clash Squad tournament hub','icons':[{'src':'/static/pwa/icon-192.svg','sizes':'192x192','type':'image/svg+xml','purpose':'any maskable'},{'src':'/static/pwa/icon-512.svg','sizes':'512x512','type':'image/svg+xml','purpose':'any maskable'}]}
     return JsonResponse(data)
 
 def service_worker(request):
