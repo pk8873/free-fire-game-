@@ -73,3 +73,42 @@ class RoomArenaWorkflowTests(TestCase):
         result=MatchResult.objects.get(match=match)
         self.assertEqual(result.status,'SUBMITTED')
         self.assertEqual(result.winner,team_a)
+
+    def test_tournament_detail_is_public(self):
+        tournament=self.make_tournament()
+        response=self.client.get(reverse('tournament-detail',args=[tournament.slug]))
+        self.assertEqual(response.status_code,200)
+
+    def test_non_captain_cannot_remove_team_member(self):
+        team=self.make_full_team('Echo')
+        other=self.make_player('outsider')
+        target=team.members.filter(is_active=True).exclude(player=team.captain).first()
+        self.client.force_login(other)
+        response=self.client.post(reverse('manage-team-member',args=[team.id,target.id]),{'action':'remove'})
+        self.assertEqual(response.status_code,404)
+        target.refresh_from_db()
+        self.assertTrue(target.is_active)
+
+    def test_captain_can_transfer_captaincy(self):
+        team=self.make_full_team('Foxtrot')
+        target=team.members.filter(is_active=True).exclude(player=team.captain).first()
+        self.client.force_login(team.captain)
+        response=self.client.post(reverse('manage-team-member',args=[team.id,target.id]),{'action':'transfer'})
+        self.assertRedirects(response,reverse('dashboard'))
+        team.refresh_from_db()
+        self.assertEqual(team.captain_id,target.player_id)
+
+    def test_captain_cannot_register_without_four_members(self):
+        captain=self.make_player('incomplete_captain')
+        team=Team.objects.create(name='Incomplete Squad',captain=captain)
+        TeamMember.objects.create(team=team,player=captain)
+        tournament=self.make_tournament()
+        self.client.force_login(captain)
+        response=self.client.post(reverse('register-team',args=[tournament.slug]),{'team_id':team.id})
+        self.assertRedirects(response,reverse('tournament-detail',args=[tournament.slug]))
+        self.assertFalse(Registration.objects.filter(tournament=tournament,team=team).exists())
+
+    def test_health_endpoint_reports_database(self):
+        response=self.client.get(reverse('health'))
+        self.assertEqual(response.status_code,200)
+        self.assertEqual(response.json()['status'],'ok')
