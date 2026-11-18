@@ -159,7 +159,7 @@ def regenerate_team_code(request,team_id):
 @login_required
 def tournament_detail(request,slug):
     tournament=get_object_or_404(Tournament,slug=slug)
-    my_teams=Team.objects.filter(members__player=request.user,members__is_active=True).distinct()
+    my_teams=Team.objects.filter(members__player=request.user,members__is_active=True).distinct() if request.user.is_authenticated else Team.objects.none()
     registrations=Registration.objects.filter(tournament=tournament,team__in=my_teams)
     return render(request,'core/tournament_detail.html',{'tournament':tournament,'my_teams':my_teams,'registrations':registrations})
 
@@ -178,13 +178,21 @@ def register_team(request,slug):
     elif tournament.registrations.exclude(status='REJECTED').count()>=tournament.max_teams:
         messages.error(request,'All team slots are currently full.')
     else:
-        Registration.objects.create(tournament=tournament,team=team)
-        messages.success(request,'Registration request sent. It will appear as pending until an admin approves it.')
+        try:
+            with transaction.atomic():
+                locked_tournament=Tournament.objects.select_for_update().get(pk=tournament.pk)
+                if locked_tournament.registrations.exclude(status='REJECTED').count()>=locked_tournament.max_teams:
+                    messages.error(request,'All team slots are currently full.')
+                else:
+                    Registration.objects.create(tournament=locked_tournament,team=team)
+                    messages.success(request,'Registration request sent. It will appear as pending until an admin approves it.')
+        except IntegrityError:
+            messages.info(request,'This team is already registered for this tournament.')
     return redirect('tournament-detail',slug=slug)
 
 @login_required
 def matches(request):
-    team_ids=TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True)
+    team_ids=list(TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True))
     regs=Registration.objects.filter(team_id__in=team_ids,status='APPROVED').values_list('tournament_id',flat=True)
     match_list=Match.objects.filter(tournament_id__in=regs).filter(Q(team_a_id__in=team_ids)|Q(team_b_id__in=team_ids)).select_related('tournament','team_a','team_b').order_by('scheduled_at')
     visible=[]
@@ -227,9 +235,21 @@ def file_dispute(request,match_id):
     form=DisputeForm(request.POST or None)
     if request.method=='POST' and form.is_valid():
         MatchDispute.objects.create(match=match,filed_by=request.user,message=form.cleaned_data['message'])
+        result=MatchResult.objects.filter(match=match).first()
+        if result and result.status!='CONFIRMED':
+            result.status='DISPUTED'; result.save(update_fields=['status','updated_at'])
         messages.success(request,'Your dispute was sent to the tournament admin.')
         return redirect('matches')
     return render(request,'core/form_page.html',{'form':form,'heading':'Report a match issue','intro':f'Match {match.match_number} · {match.tournament.title}','button':'Submit dispute'})
+
+def health(request):
+    from django.db import connection
+    from django.db.utils import DatabaseError
+    try:
+        connection.ensure_connection()
+        return JsonResponse({'status':'ok','database':'connected'})
+    except DatabaseError:
+        return JsonResponse({'status':'error','database':'unavailable'},status=503)
 
 def manifest(request):
     data={'name':'ROOM ARENA','short_name':'ROOM ARENA','start_url':'/','display':'standalone','background_color':'#090d14','theme_color':'#ff5a36','description':'Community Clash Squad tournament hub','icons':[{'src':'/static/pwa/icon-192.svg','sizes':'192x192','type':'image/svg+xml','purpose':'any maskable'},{'src':'/static/pwa/icon-512.svg','sizes':'512x512','type':'image/svg+xml','purpose':'any maskable'}]}
