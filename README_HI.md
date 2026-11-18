@@ -1,50 +1,87 @@
 # ROOM ARENA — Hindi Setup Guide
 
-यह Phase 1 Django + PWA starter है। इसमें Free Fire MAX community के लिए केवल Clash Squad 4v4 tournament listing और Super Admin के लिए Django Admin management शामिल है। यह अभी complete player self-service tournament portal नहीं है।
+ROOM ARENA एक independent Django + PWA community tournament platform है। अभी competition mode **Clash Squad 4v4** है।
+
+## अभी उपलब्ध सुविधाएँ
+
+### Player side
+- Username, email, in-game name और unique Game UID से signup
+- Login/logout और player dashboard
+- Squad create करके invite code share करना
+- Invite code से squad join करना (अधिकतम 4 active members)
+- Published tournaments देखना
+- Team captain द्वारा tournament registration request भेजना
+- Registration status देखना: Pending / Approved / Rejected
+
+### Admin / Tournament operations
+- Super Admin tournament create/edit/publish कर सकता है
+- Team registration approve/reject कर सकता है
+- Match schedule और status manage कर सकता है
+- Room ID/password और release time set कर सकता है
+- Room credentials केवल approved match में शामिल team के logged-in members को release time के बाद दिखते हैं
+- Team captain provisional match result submit/update कर सकता है
+- Approved team का participant match dispute दर्ज कर सकता है
+- Admin result confirm और dispute resolve कर सकता है
+
+### Platform
+- Responsive dark/orange interface
+- PWA manifest और service worker
+- Local SQLite, production PostgreSQL (DATABASE_URL)
+- Committed database migrations
+- Render deployment configuration
 
 ## Windows पर चलाएँ
 
-1. Python 3.12 install करें और repository clone करें।
-2. PowerShell में project folder खोलें:
-   `py -3.12 -m venv .venv`
-3. Activate करें: `\.venv\Scripts\Activate.ps1`
-4. Packages install करें: `python -m pip install -r requirements.txt`
-5. Database migration बनाएँ: `python manage.py makemigrations players tournaments`
-6. Database tables बनाएँ: `python manage.py migrate`
-7. Admin account बनाएँ: `python manage.py createsuperuser`
-8. Server चलाएँ: `python manage.py runserver`
-9. Home: `http://127.0.0.1:8000/` और Admin: `http://127.0.0.1:8000/admin/`
+Python 3.12 और Git install करें। PowerShell में:
+
+    git clone https://github.com/pk8873/free-fire-game-.git
+    cd free-fire-game-
+    py -3.12 -m venv .venv
+    .\.venv\Scripts\Activate.ps1
+    python -m pip install -r requirements.txt
+    python manage.py migrate
+    python manage.py createsuperuser
+    python manage.py runserver
+
+Home: http://127.0.0.1:8000/  
+Admin: http://127.0.0.1:8000/admin/
 
 ## Render पर Deploy
 
-1. Render Dashboard में PostgreSQL database बनाएँ और उसका **Internal Database URL** copy करें।
-2. GitHub repository `pk8873/free-fire-game-` से Web Service बनाएँ; branch `main) चुनें।
-3. Build command: `bash build.sh`
-4. Start command: `gunicorn config.wsgi:application`
-5. Python runtime 3.12 चुनें।
-6. Environment Variables जोड़ें:
-   - `SECRET_KEY` = लंबी random secret value (Render generate कर सकता है)
-   - `DEBUG` = `False`
-   - `ALLOWED_HOSTS` = `.onrender.com`
-   - `CSRF_TRUSTED_ORIGINS` = `https://*.onrender.com`
-   - `DATABASE_URL` = PostgreSQL का Internal Database URL
-7. Deploy के बाद Render Shell में `python manage.py createsuperuser` चलाएँ।
-8. `https://YOUR-SERVICE.onrender.com/admin/` पर Super Admin login करें।
+1. Render Dashboard में PostgreSQL database बनाएँ और Internal Database URL copy करें।
+2. GitHub से pk8873/free-fire-game- repository, branch main पर Web Service बनाएँ।
+3. Runtime Python 3.12 रखें।
+4. Build command: bash build.sh
+5. Start command: gunicorn config.wsgi:application
+6. Environment Variables:
+   - SECRET_KEY = लंबी random secret value (या Render से generate करें)
+   - DEBUG = False
+   - ALLOWED_HOSTS = .onrender.com
+   - CSRF_TRUSTED_ORIGINS = https://*.onrender.com
+   - DATABASE_URL = PostgreSQL Internal Database URL
+7. Deploy के बाद Render Shell में python manage.py createsuperuser चलाएँ।
+8. अपने service URL के अंत में /admin/ खोलकर admin login करें।
 
-अगर Render Blueprint उपयोग करें तो `render.yaml` में `DATABASE_URL` manually भरना होगा। Database plan और availability region/account के अनुसार बदल सकते हैं।
+render.yaml में DATABASE_URL manually देना होगा। Render के free plan, database retention और availability को अपने account में जाँचें।
 
-## अभी शामिल सुविधाएँ
+## Admin को tournament चलाने का क्रम
 
-- Responsive landing page और PWA manifest/service worker
-- Tournament, player profile, team, team member, registration, match, room credentials और result models
-- Django Admin में Super Admin management
-- Local SQLite और production PostgreSQL configuration
-- Render build/start configuration
+1. /admin/ में Tournament बनाएँ और registration deadline/start time set करें।
+2. Tournament status PUBLISHED करें।
+3. Players signup करके teams बनाएँ; captain invite code team members को दे।
+4. Captain के team में ठीक चार active players होने के बाद registration request भेजे।
+5. Admin Registration को approve करे।
+6. Admin Match बनाए और दोनों teams तथा schedule set करे।
+7. Admin RoomCredential में room ID/password और release time भरे।
+8. Match के बाद captain score submit करे; admin result verify करके CONFIRMED करे।
+9. Dispute आने पर admin Match Dispute record review करके status/response update करे।
 
-## अभी शामिल नहीं हैं
+## अभी क्या नहीं है
 
-Player signup/login UI, player dashboard, public team create/join, player-side tournament registration, secure room credential delivery, proof uploads, dispute handling, notifications, auto brackets और payments अभी नहीं बने हैं। Exactly 4 active team members की rule अभी automated workflow से enforce नहीं होती; Admin को roster manually verify करना होगा।
+Automated bracket, live scoring, notifications, proof/evidence upload, anti-cheat verification, Garena API, captain transfer, team member removal और payments अभी शामिल नहीं हैं। Admin को matches/approvals/room release/results manually manage करने होंगे। Match score user द्वारा submit होता है और admin confirmation तक provisional है।
+
+इस session में Render deployment या production database migration run नहीं किया गया है। Deploy करने के बाद logs और workflows को test करना जरूरी है।
 
 ## Legal / Permission
 
-यह independent community platform है, Garena से affiliated या endorsed नहीं है। Garena logo, trademark, game artwork, sound या official branding written permission के बिना उपयोग न करें। इस version में player deposits, paid-entry, betting या wagering नहीं हैं। Commercial operation, prize promotion या कोई fee लेने से पहले qualified Indian lawyer और relevant rights holder/authority से written clarification लें।
+यह independent community platform है, Garena से affiliated या endorsed नहीं है। Garena logo, trademark, game artwork, audio या official assets written permission के बिना उपयोग न करें। इस code से tournament या commercial rights नहीं मिलते। Public/commercial launch, prize, sponsorship monetization या कोई fee लेने से पहले written permission/clarification और qualified Indian legal advice लें।
