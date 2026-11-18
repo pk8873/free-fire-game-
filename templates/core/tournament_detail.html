@@ -26,6 +26,7 @@
             <button class="secondary" type="submit" {% if team.active_member_count != 4 %}disabled{% endif %}>Request registration</button>
           </form>
           {% if team.active_member_count != 4 %}<p class="muted">This squad needs exactly four active players before it can register.</p>{% endif %}
+        {% else %}<p class="muted">Only the team captain can send this registration request. Your captain is {{ team.captain.username }}.</p>
         {% endif %}
       {% empty %}
         <p class="muted">Create or join a team from your <a class="text-link" href="{% url 'dashboard' %}">dashboard</a> first.</p>
