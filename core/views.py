@@ -3,6 +3,7 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.db import IntegrityError, transaction
 from django.http import HttpResponse, JsonResponse, Http404
+from django.db.models import Q
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from players.models import PlayerProfile, Team, TeamMember
@@ -30,7 +31,11 @@ def login_view(request):
         username=request.POST.get('username','').strip()
         user=authenticate(request,username=username,password=request.POST.get('password',''))
         if user is not None:
-            login(request,user); return redirect('dashboard')
+            login(request,user)
+            next_url=request.POST.get('next') or request.GET.get('next')
+            from django.utils.http import url_has_allowed_host_and_scheme
+            if next_url and url_has_allowed_host_and_scheme(next_url,allowed_hosts={request.get_host()},require_https=request.is_secure()): return redirect(next_url)
+            return redirect('dashboard')
         error='Username or password is incorrect.'
     return render(request,'core/login.html',{'error':error})
 
@@ -100,7 +105,7 @@ def register_team(request,slug):
         messages.error(request,'A Clash Squad team must have exactly four active players.')
     elif Registration.objects.filter(tournament=tournament,team=team).exists():
         messages.info(request,'This team is already registered.')
-    elif tournament.registrations.filter(status='APPROVED').count()>=tournament.max_teams:
+    elif tournament.registrations.exclude(status='REJECTED').count()>=tournament.max_teams:
         messages.error(request,'All team slots are currently full.')
     else:
         Registration.objects.create(tournament=tournament,team=team)
@@ -111,7 +116,7 @@ def register_team(request,slug):
 def matches(request):
     team_ids=TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True)
     regs=Registration.objects.filter(team_id__in=team_ids,status='APPROVED').values_list('tournament_id',flat=True)
-    match_list=Match.objects.filter(tournament_id__in=regs).select_related('tournament','team_a','team_b').order_by('scheduled_at')
+    match_list=Match.objects.filter(tournament_id__in=regs).filter(Q(team_a_id__in=team_ids)|Q(team_b_id__in=team_ids)).select_related('tournament','team_a','team_b').order_by('scheduled_at')
     visible=[]
     now=timezone.now()
     for match in match_list:
