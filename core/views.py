@@ -151,9 +151,9 @@ def submit_result(request,match_id):
 def file_dispute(request,match_id):
     match=get_object_or_404(Match,pk=match_id)
     team_ids=TeamMember.objects.filter(player=request.user,is_active=True).values_list('team_id',flat=True)
-    is_participant=match.team_a_id in team_ids or match.team_b_id in team_ids
-    approved=Registration.objects.filter(tournament=match.tournament,team_id__in=team_ids,status='APPROVED').exists()
-    if not is_participant or not approved: raise Http404
+    approved_team_ids=Registration.objects.filter(tournament=match.tournament,team_id__in=team_ids,status='APPROVED').values_list('team_id',flat=True)
+    is_participant=match.team_a_id in approved_team_ids or match.team_b_id in approved_team_ids
+    if not is_participant: raise Http404
     form=DisputeForm(request.POST or None)
     if request.method=='POST' and form.is_valid():
         MatchDispute.objects.create(match=match,filed_by=request.user,message=form.cleaned_data['message'])
