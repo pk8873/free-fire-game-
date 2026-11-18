@@ -1,5 +1,4 @@
 from django.contrib import admin
-from django.urls import path
-from core.views import home, manifest, service_worker
+from django.urls import include, path
 
-urlpatterns = [path('admin/', admin.site.urls), path('', home, name='home'), path('manifest.webmanifest', manifest, name='manifest'), path('service-worker.js', service_worker, name='service-worker')]
+urlpatterns=[path('admin/',admin.site.urls),path('',include('core.urls'))]
