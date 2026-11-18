@@ -1,5 +1,9 @@
+from uuid import uuid4
 from django.conf import settings
 from django.db import models
+
+def make_team_code():
+    return uuid4().hex[:8].upper()
 
 class PlayerProfile(models.Model):
     user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='player_profile')
@@ -12,6 +16,7 @@ class PlayerProfile(models.Model):
 class Team(models.Model):
     name = models.CharField(max_length=60, unique=True)
     captain = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT, related_name='captained_teams')
+    join_code = models.CharField(max_length=8, unique=True, default=make_team_code, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
     def __str__(self): return self.name
 
